@@ -30,7 +30,6 @@ def agrupar_pisos(bases_ingresadas):
         if pisos and pisos[-1]['medida'] == base['medida']:
             pisos[-1]['altura_cm'] += 6
             pisos[-1]['cantidad_bases'] += 1
-            # Solo combinamos texto si los rellenos son distintos
             if base['relleno'] not in pisos[-1]['relleno']:
                 pisos[-1]['relleno'] += " + " + base['relleno'] 
         else:
@@ -47,7 +46,6 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
     ax.axis('off')
     
     if tipo == "Tipo Base (Redondo)":
-        # VISTA LATERAL
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 140) 
         
@@ -71,7 +69,6 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
                                        linewidth=2, edgecolor='black', facecolor='seashell')
             ax.add_patch(pastel)
             
-            # Etiqueta Central (Diámetro y Relleno si aplica)
             etiqueta_centro = f"{medida} dia."
             if tipo_relleno == "Rellenos diferentes por base":
                 etiqueta_centro += f"\n({piso['relleno']})"
@@ -79,7 +76,6 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
             ax.text(50, y_inicio + (altura_dibujo/2), etiqueta_centro, 
                     va='center', ha='center', fontsize=9, fontweight='bold', color='black')
             
-            # Etiqueta de Altura (Izquierda)
             ax.text(x_inicio - 2, y_inicio + (altura_dibujo/2), f"{altura_cm} cm\n({piso['cantidad_bases']} bases)", 
                     va='center', ha='right', fontsize=9, color='blue')
             
@@ -87,23 +83,19 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
             altura_total_dibujo += altura_dibujo
             altura_total_cm += altura_cm
             
-        # Cota de altura total
         ax.annotate('', xy=(88, 20), xytext=(88, 20 + altura_total_dibujo),
                     arrowprops=dict(arrowstyle='|-|', color='black', lw=1.5))
         ax.text(91, 20 + altura_total_dibujo/2, f'Total:\n{altura_total_cm} cm', 
                 va='center', ha='left', fontsize=12, fontweight='bold')
         
-        # Relleno general (Si aplica, se pone hasta arriba)
         if tipo_relleno == "Un solo relleno general":
             ax.text(50, 20 + altura_total_dibujo + 5, f'Relleno: {relleno_global}', 
                     va='bottom', ha='center', fontsize=11, fontstyle='italic', color='dimgray')
                 
     else:
-        # VISTA SUPERIOR (Planchas)
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 100)
         
-        # Relleno general (Si aplica, se pone hasta arriba)
         if tipo_relleno == "Un solo relleno general":
             ax.text(50, 95, f'Relleno General: {relleno_global}', 
                     va='top', ha='center', fontsize=11, fontstyle='italic', color='dimgray')
@@ -141,23 +133,43 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
 def reiniciar_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+    st.session_state.bases_confirmadas = False
+
+def reset_confirmacion():
+    st.session_state.bases_confirmadas = False
 
 # --- INTERFAZ DE USUARIO ---
 st.set_page_config(page_title="Creador de Pasteles", layout="centered")
+
+# Estilo para forzar el botón Aceptar a verde (opcional, inyectamos CSS)
+st.markdown("""
+    <style>
+    div[data-testid="stButton"] button[kind="primary"] {
+        background-color: #28a745; 
+        color: white; 
+        border-color: #28a745;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover {
+        background-color: #218838; 
+        border-color: #1e7e34;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🎂 Creador de Pasteles")
 st.write("Selecciona los parámetros y el sistema calculará las porciones y armará el diseño.")
 st.divider()
 
 # --- 1. DATOS PRINCIPALES ---
-tipo = st.selectbox("1. Tipo de Pastel:", ["Tipo Base (Redondo)", "Tipo Plancha (Rectangular)"], index=None, placeholder="Selecciona el tipo...", key="in_tipo")
+tipo = st.selectbox("1. Tipo de Pastel:", ["Tipo Base (Redondo)", "Tipo Plancha (Rectangular)"], index=None, placeholder="Selecciona el tipo...", key="in_tipo", on_change=reset_confirmacion)
 
 st.write("**2. Configuración de Rellenos:**")
 tipo_relleno = st.radio("¿El pastel lleva el mismo relleno en todas las bases?", 
-                        ["Un solo relleno general", "Rellenos diferentes por base"], index=None)
+                        ["Un solo relleno general", "Rellenos diferentes por base"], index=None, on_change=reset_confirmacion)
 
 relleno_global = ""
 if tipo_relleno == "Un solo relleno general":
-    relleno_global = st.text_input("Relleno para todo el pastel:", value="", placeholder="Ej. Fresa con Crema", key="in_relleno_global")
+    relleno_global = st.text_input("Relleno para todo el pastel:", value="", placeholder="Ej. Fresa con Crema", key="in_relleno_global", on_change=reset_confirmacion)
 
 opciones_medidas = []
 diccionario_actual = {}
@@ -170,111 +182,130 @@ elif tipo == "Tipo Plancha (Rectangular)":
 
 # --- 2. CONFIGURACIÓN DE MEDIDAS (BASES) ---
 st.divider()
-num_bases = st.number_input("3. ¿Cuántos pasteles (bases) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key="in_bases")
+
+if "bases_confirmadas" not in st.session_state:
+    st.session_state.bases_confirmadas = False
+
+num_bases = st.number_input("3. ¿Cuántos pasteles (bases) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key="in_bases", on_change=reset_confirmacion)
 
 bases_ingresadas = []
 
 if num_bases is not None and tipo is not None and tipo_relleno is not None:
-    st.write("**Selecciona la medida y relleno de cada base agregada:**")
-    st.info("💡 Tip: En pasteles redondos, bases de la misma medida se fusionan en pisos de altura doble (12 cm).")
     
-    for i in range(num_bases):
-        col1, col2 = st.columns(2)
-        with col1:
-            dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", key=f"in_dim_{i}")
-        with col2:
+    # Botón de aceptar
+    if st.button("✅ Aceptar", type="primary"):
+        st.session_state.bases_confirmadas = True
+
+    if st.session_state.bases_confirmadas:
+        st.write("**Selecciona la medida de cada base agregada:**")
+        if tipo == "Tipo Base (Redondo)":
+            st.info("💡 Tip: Bases de la misma medida se fusionan en pisos de altura doble (12 cm).")
+        
+        capacidad_temporal = 0
+        
+        for i in range(num_bases):
+            # Si el relleno es diferente, creamos dos columnas. Si es igual, solo una columna.
             if tipo_relleno == "Rellenos diferentes por base":
-                rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}")
+                col1, col2 = st.columns(2)
+                with col1:
+                    dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", key=f"in_dim_{i}")
+                with col2:
+                    rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}")
             else:
+                dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Selecciona medida...", key=f"in_dim_{i}")
                 rell = relleno_global
-                st.text_input(f"Relleno Base {i+1}", value=relleno_global, disabled=True, key=f"in_rell_dis_{i}")
-                
-        bases_ingresadas.append({'medida': dim, 'relleno': rell})
-
-st.divider()
-
-if "calculado" not in st.session_state:
-    st.session_state.calculado = False
-
-# --- 3. BOTÓN DE CALCULAR ---
-if st.button("🚀 Calcular y Generar Esquema", type="primary"):
-    
-    campos_incompletos = False
-    if tipo is None or num_bases is None or tipo_relleno is None:
-        campos_incompletos = True
-    for b in bases_ingresadas:
-        if b['medida'] is None or b['relleno'] == "":
-            campos_incompletos = True
-
-    if campos_incompletos:
-        st.error("⚠️ Por favor, llena todos los campos, rellenos y selecciona las medidas antes de calcular.")
-    else:
-        with st.spinner('Ensamblando el pastel y calculando porciones...'):
-            time.sleep(1.5) 
-        
-        st.session_state.total_personas = sum([diccionario_actual[b['medida']] for b in bases_ingresadas])
-        st.session_state.pisos_agrupados = agrupar_pisos(bases_ingresadas)
-        
-        if tipo == "Tipo Plancha (Rectangular)":
-            st.session_state.altura_total = 12 
-        else:
-            st.session_state.altura_total = sum([piso['altura_cm'] for piso in st.session_state.pisos_agrupados])
+                    
+            bases_ingresadas.append({'medida': dim, 'relleno': rell})
             
-        st.session_state.tipo_guardado = tipo
-        st.session_state.num_bases_guardado = num_bases
-        st.session_state.tipo_relleno_guardado = tipo_relleno
-        st.session_state.relleno_global_guardado = relleno_global
-        st.session_state.calculado = True
+            # Sumar capacidad en tiempo real
+            if dim is not None:
+                capacidad_temporal += diccionario_actual[dim]
 
-# --- MOSTRAR RESULTADOS SI YA SE CALCULÓ ---
-if st.session_state.calculado:
-    st.success("¡Esquema generado con éxito!")
-    
-    st.subheader("📊 Resumen del Pedido")
-    st.write(f"👥 **Capacidad total:** Alcanza para **{st.session_state.total_personas} personas**.")
-    st.write(f"🥞 **Total de bases:** {st.session_state.num_bases_guardado}")
-    st.write(f"🍰 **Pisos resultantes (visibles):** {len(st.session_state.pisos_agrupados)}")
-    st.write(f"📏 **Altura total:** {st.session_state.altura_total} cm")
+        # Texto dinámico de la capacidad
+        if capacidad_temporal > 0:
+            st.success(f"👥 Capacidad seleccionada hasta ahora: **{capacidad_temporal} personas**")
 
-    st.subheader("📐 Esquema Visual")
-    fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.tipo_guardado, st.session_state.tipo_relleno_guardado, st.session_state.relleno_global_guardado)
-    st.pyplot(fig)
-    
-    buf = io.BytesIO()
-    fig.savefig(buf, format="jpeg", bbox_inches='tight')
-    buf.seek(0)
-    
-    # --- TEXTO DE WHATSAPP ---
-    texto_wa = f"*Resumen de Pedido de Pastel*\n\n"
-    texto_wa += f"• *Tipo:* {st.session_state.tipo_guardado}\n"
-    texto_wa += f"• *Bases totales:* {st.session_state.num_bases_guardado}\n"
-    texto_wa += f"• *Altura Total:* {st.session_state.altura_total} cm\n\n"
-    texto_wa += f"📊 *Distribución y Rellenos:*\n"
-    if st.session_state.tipo_relleno_guardado == "Un solo relleno general":
-        texto_wa += f"  - Relleno General: {st.session_state.relleno_global_guardado}\n"
-    for p in st.session_state.pisos_agrupados:
-        rell_texto = "" if st.session_state.tipo_relleno_guardado == "Un solo relleno general" else f" | Relleno: {p['relleno']}"
-        texto_wa += f"  - {p['medida']} | {p['altura_cm']} cm{rell_texto}\n"
-    texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!\n\n"
-    texto_wa += f"Te adjunto en un momento el diseño visual del pastel."
-    
-    texto_wa_encoded = urllib.parse.quote(texto_wa)
-    whatsapp_url = f"https://wa.me/522281342454?text={texto_wa_encoded}"
-    
-    col_down, col_wa = st.columns(2)
-    with col_down:
-        st.download_button(
-            label="💾 Descargar Diagrama (JPG)",
-            data=buf,
-            file_name="esquema_pastel.jpg",
-            mime="image/jpeg",
-            use_container_width=True
-        )
-    with col_wa:
-        st.link_button("💬 Enviar por WhatsApp", whatsapp_url, use_container_width=True)
+        st.divider()
+
+        if "calculado" not in st.session_state:
+            st.session_state.calculado = False
+
+        # --- 3. BOTÓN DE CALCULAR ---
+        if st.button("🚀 Calcular y Generar Esquema"):
+            
+            campos_incompletos = False
+            for b in bases_ingresadas:
+                if b['medida'] is None or b['relleno'] == "":
+                    campos_incompletos = True
+
+            if campos_incompletos:
+                st.error("⚠️ Por favor, llena todos los campos y selecciona las medidas antes de calcular.")
+            else:
+                with st.spinner('Ensamblando el pastel y calculando porciones...'):
+                    time.sleep(1.5) 
+                
+                st.session_state.total_personas = sum([diccionario_actual[b['medida']] for b in bases_ingresadas])
+                st.session_state.pisos_agrupados = agrupar_pisos(bases_ingresadas)
+                
+                if tipo == "Tipo Plancha (Rectangular)":
+                    st.session_state.altura_total = 12 
+                else:
+                    st.session_state.altura_total = sum([piso['altura_cm'] for piso in st.session_state.pisos_agrupados])
+                    
+                st.session_state.tipo_guardado = tipo
+                st.session_state.num_bases_guardado = num_bases
+                st.session_state.tipo_relleno_guardado = tipo_relleno
+                st.session_state.relleno_global_guardado = relleno_global
+                st.session_state.calculado = True
+
+        # --- MOSTRAR RESULTADOS SI YA SE CALCULÓ ---
+        if st.session_state.get('calculado', False):
+            st.success("¡Esquema generado con éxito!")
+            
+            st.subheader("📊 Resumen del Pedido")
+            st.write(f"👥 **Capacidad total:** Alcanza para **{st.session_state.total_personas} personas**.")
+            st.write(f"🥞 **Total de bases:** {st.session_state.num_bases_guardado}")
+            st.write(f"🍰 **Pisos resultantes (visibles):** {len(st.session_state.pisos_agrupados)}")
+            st.write(f"📏 **Altura total:** {st.session_state.altura_total} cm")
+
+            st.subheader("📐 Esquema Visual")
+            fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.tipo_guardado, st.session_state.tipo_relleno_guardado, st.session_state.relleno_global_guardado)
+            st.pyplot(fig)
+            
+            buf = io.BytesIO()
+            fig.savefig(buf, format="jpeg", bbox_inches='tight')
+            buf.seek(0)
+            
+            texto_wa = f"*Resumen de Pedido de Pastel*\n\n"
+            texto_wa += f"• *Tipo:* {st.session_state.tipo_guardado}\n"
+            texto_wa += f"• *Bases totales:* {st.session_state.num_bases_guardado}\n"
+            texto_wa += f"• *Altura Total:* {st.session_state.altura_total} cm\n\n"
+            texto_wa += f"📊 *Distribución y Rellenos:*\n"
+            if st.session_state.tipo_relleno_guardado == "Un solo relleno general":
+                texto_wa += f"  - Relleno General: {st.session_state.relleno_global_guardado}\n"
+            for p in st.session_state.pisos_agrupados:
+                rell_texto = "" if st.session_state.tipo_relleno_guardado == "Un solo relleno general" else f" | Relleno: {p['relleno']}"
+                texto_wa += f"  - {p['medida']} | {p['altura_cm']} cm{rell_texto}\n"
+            texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!\n\n"
+            texto_wa += f"Te adjunto en un momento el diseño visual del pastel."
+            
+            texto_wa_encoded = urllib.parse.quote(texto_wa)
+            whatsapp_url = f"https://wa.me/522281342454?text={texto_wa_encoded}"
+            
+            col_down, col_wa = st.columns(2)
+            with col_down:
+                st.download_button(
+                    label="💾 Descargar Diagrama (JPG)",
+                    data=buf,
+                    file_name="esquema_pastel.jpg",
+                    mime="image/jpeg",
+                    use_container_width=True
+                )
+            with col_wa:
+                st.link_button("💬 Enviar por WhatsApp", whatsapp_url, use_container_width=True)
 
 # --- BOTÓN BORRAR TODO (HASTA ABAJO) ---
 st.write("")
 st.write("")
 st.divider()
-st.button("🗑️ Borrar Todo y Limpiar Campos", on_click=reiniciar_app, type="secondary", use_container_width=True)
+st.button("🗑️ Borrar Todo y Limpiar Campos", on_click=reiniciar_app, use_container_width=True)
