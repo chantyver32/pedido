@@ -129,7 +129,7 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
 
     return fig
 
-# --- FUNCIÓN REINICIAR ---
+# --- FUNCIÓN REINICIAR Y RESET ---
 def reiniciar_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
@@ -141,7 +141,7 @@ def reset_confirmacion():
 # --- INTERFAZ DE USUARIO ---
 st.set_page_config(page_title="Creador de Pasteles", layout="centered")
 
-# Estilo para forzar el botón Aceptar a verde (opcional, inyectamos CSS)
+# Estilo para forzar el botón Aceptar a verde
 st.markdown("""
     <style>
     div[data-testid="stButton"] button[kind="primary"] {
@@ -186,16 +186,17 @@ st.divider()
 if "bases_confirmadas" not in st.session_state:
     st.session_state.bases_confirmadas = False
 
-num_bases = st.number_input("3. ¿Cuántos pasteles (bases) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key="in_bases", on_change=reset_confirmacion)
+num_bases = st.number_input("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key="in_bases", on_change=reset_confirmacion)
 
 bases_ingresadas = []
 
 if num_bases is not None and tipo is not None and tipo_relleno is not None:
     
-    # Botón de aceptar
+    # El botón Aceptar siempre visible en este punto
     if st.button("✅ Aceptar", type="primary"):
         st.session_state.bases_confirmadas = True
 
+    # Se despliega el menú solo tras confirmar
     if st.session_state.bases_confirmadas:
         st.write("**Selecciona la medida de cada base agregada:**")
         if tipo == "Tipo Base (Redondo)":
@@ -204,24 +205,28 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
         capacidad_temporal = 0
         
         for i in range(num_bases):
-            # Si el relleno es diferente, creamos dos columnas. Si es igual, solo una columna.
+            # Lógica para ocultar los rellenos si es "Un solo relleno"
             if tipo_relleno == "Rellenos diferentes por base":
                 col1, col2 = st.columns(2)
                 with col1:
-                    dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", key=f"in_dim_{i}")
+                    # El format_func es lo que permite mostrar la capacidad en la lista desplegable
+                    dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", 
+                                       format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}")
                 with col2:
                     rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}")
             else:
-                dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Selecciona medida...", key=f"in_dim_{i}")
+                # Se oculta el text_input completamente, solo queda la lista desplegable a lo ancho
+                dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Selecciona medida...", 
+                                   format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}")
                 rell = relleno_global
                     
             bases_ingresadas.append({'medida': dim, 'relleno': rell})
             
-            # Sumar capacidad en tiempo real
+            # Contador de personas en vivo
             if dim is not None:
                 capacidad_temporal += diccionario_actual[dim]
 
-        # Texto dinámico de la capacidad
+        # Texto dinámico mostrando la capacidad
         if capacidad_temporal > 0:
             st.success(f"👥 Capacidad seleccionada hasta ahora: **{capacidad_temporal} personas**")
 
