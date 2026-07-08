@@ -122,7 +122,6 @@ if num_bases is not None and tipo is not None:
 
 st.divider()
 
-# Usamos variables persistidas en session_state para mantener el resultado visible
 if "calculado" not in st.session_state:
     st.session_state.calculado = False
 
@@ -134,7 +133,6 @@ if st.button("🚀 Calcular y Generar Esquema", type="primary"):
         with st.spinner('Ensamblando el pastel y calculando porciones...'):
             time.sleep(1.5) 
         
-        # Guardar resultados en el estado de la sesión
         st.session_state.total_personas = sum([diccionario_actual[dim] for dim in dimensiones_ingresadas])
         st.session_state.pisos_agrupados = agrupar_pisos(dimensiones_ingresadas)
         st.session_state.altura_total = sum([piso['altura_cm'] for piso in st.session_state.pisos_agrupados])
@@ -147,24 +145,21 @@ if st.button("🚀 Calcular y Generar Esquema", type="primary"):
 if st.session_state.calculado:
     st.success("¡Esquema generado con éxito!")
     
-    # Resumen
     st.subheader("📊 Resumen del Pedido")
     st.write(f"👥 **Capacidad total:** Alcanza para **{st.session_state.total_personas} personas**.")
     st.write(f"🥞 **Total de bases (6cm c/u):** {st.session_state.num_bases_guardado}")
     st.write(f"🍰 **Pisos resultantes (visibles):** {len(st.session_state.pisos_agrupados)}")
     st.write(f"📏 **Altura total:** {st.session_state.altura_total} cm")
 
-    # Visual
     st.subheader("📐 Esquema Visual")
     fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.relleno_guardado, st.session_state.tipo_guardado)
     st.pyplot(fig)
     
-    # --- PROCESAMIENTO DE IMAGEN PARA DESCARGA ---
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches='tight')
     buf.seek(0)
     
-    # --- CONSTRUCCIÓN DEL MENSAJE DE WHATSAPP ---
+    # --- TEXTO DE WHATSAPP ---
     texto_wa = f"*Resumen de Pedido de Pastel*\n\n"
     texto_wa += f"• *Tipo:* {st.session_state.tipo_guardado}\n"
     texto_wa += f"• *Relleno:* {st.session_state.relleno_guardado}\n"
@@ -176,9 +171,10 @@ if st.session_state.calculado:
     texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!"
     
     texto_wa_encoded = urllib.parse.quote(texto_wa)
-    whatsapp_url = f"https://wa.me/?text={texto_wa_encoded}"
     
-    # --- BOTONES DE ACCIÓN ADICIONALES ---
+    # NUEVO: Aquí se agrega el número con el código de país (52 para México)
+    whatsapp_url = f"https://wa.me/522281342454?text={texto_wa_encoded}"
+    
     col_down, col_wa = st.columns(2)
     with col_down:
         st.download_button(
