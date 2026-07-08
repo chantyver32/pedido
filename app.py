@@ -129,11 +129,18 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
 
     return fig
 
+# --- INICIALIZAR MEMORIA DE RESETEO ---
+if 'reset_key' not in st.session_state:
+    st.session_state.reset_key = 0
+
 # --- FUNCIÓN REINICIAR Y RESET ---
 def reiniciar_app():
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.session_state.bases_confirmadas = False
+    # Aumentamos la llave para obligar a que todos los componentes nazcan de nuevo
+    st.session_state.reset_key += 1
+    # Limpiamos las variables operativas
+    claves_a_borrar = [k for k in st.session_state.keys() if k != 'reset_key']
+    for k in claves_a_borrar:
+        del st.session_state[k]
 
 def reset_confirmacion():
     st.session_state.bases_confirmadas = False
@@ -141,7 +148,6 @@ def reset_confirmacion():
 # --- INTERFAZ DE USUARIO ---
 st.set_page_config(page_title="Creador de Pasteles", layout="centered")
 
-# Estilo para forzar el botón Aceptar a verde
 st.markdown("""
     <style>
     div[data-testid="stButton"] button[kind="primary"] {
@@ -160,16 +166,18 @@ st.title("🎂 Creador de Pasteles")
 st.write("Selecciona los parámetros y el sistema calculará las porciones y armará el diseño.")
 st.divider()
 
+rk = st.session_state.reset_key # Llave dinámica para inputs
+
 # --- 1. DATOS PRINCIPALES ---
-tipo = st.selectbox("1. Tipo de Pastel:", ["Tipo Base (Redondo)", "Tipo Plancha (Rectangular)"], index=None, placeholder="Selecciona el tipo...", key="in_tipo", on_change=reset_confirmacion)
+tipo = st.selectbox("1. Tipo de Pastel:", ["Tipo Base (Redondo)", "Tipo Plancha (Rectangular)"], index=None, placeholder="Selecciona el tipo...", key=f"in_tipo_{rk}", on_change=reset_confirmacion)
 
 st.write("**2. Configuración de Rellenos:**")
 tipo_relleno = st.radio("¿El pastel lleva el mismo relleno en todas las bases?", 
-                        ["Un solo relleno general", "Rellenos diferentes por base"], index=None, on_change=reset_confirmacion)
+                        ["Un solo relleno general", "Rellenos diferentes por base"], index=None, key=f"in_trell_{rk}", on_change=reset_confirmacion)
 
 relleno_global = ""
 if tipo_relleno == "Un solo relleno general":
-    relleno_global = st.text_input("Relleno para todo el pastel:", value="", placeholder="Ej. Fresa con Crema", key="in_relleno_global", on_change=reset_confirmacion)
+    relleno_global = st.text_input("Relleno para todo el pastel:", value="", placeholder="Ej. Fresa con Crema", key=f"in_rg_{rk}", on_change=reset_confirmacion)
 
 opciones_medidas = []
 diccionario_actual = {}
@@ -186,13 +194,20 @@ st.divider()
 if "bases_confirmadas" not in st.session_state:
     st.session_state.bases_confirmadas = False
 
-num_bases = st.number_input("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key="in_bases", on_change=reset_confirmacion)
+num_bases = None
+# Logica de número de bases dependiendo del tipo
+if tipo == "Tipo Base (Redondo)":
+    num_bases = st.number_input("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key=f"in_bases_{rk}", on_change=reset_confirmacion)
+elif tipo == "Tipo Plancha (Rectangular)":
+    st.write("**3. Cantidad de bases:**")
+    st.info("💡 Las planchas tienen un formato estándar de 1 sola base (Altura fija de 12 cm).")
+    num_bases = 1
 
 bases_ingresadas = []
 
 if num_bases is not None and tipo is not None and tipo_relleno is not None:
     
-    # El botón Aceptar siempre visible en este punto
+    # El botón Aceptar siempre visible en este punto (después de configurar los 3 pasos)
     if st.button("✅ Aceptar", type="primary"):
         st.session_state.bases_confirmadas = True
 
@@ -209,15 +224,13 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
             if tipo_relleno == "Rellenos diferentes por base":
                 col1, col2 = st.columns(2)
                 with col1:
-                    # El format_func es lo que permite mostrar la capacidad en la lista desplegable
                     dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", 
-                                       format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}")
+                                       format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}_{rk}")
                 with col2:
-                    rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}")
+                    rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}_{rk}")
             else:
-                # Se oculta el text_input completamente, solo queda la lista desplegable a lo ancho
                 dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Selecciona medida...", 
-                                   format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}")
+                                   format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}_{rk}")
                 rell = relleno_global
                     
             bases_ingresadas.append({'medida': dim, 'relleno': rell})
