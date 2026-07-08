@@ -195,7 +195,8 @@ if "bases_confirmadas" not in st.session_state:
 num_bases = None
 
 if tipo == "Tipo Base (Redondo)":
-    num_bases = st.number_input("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key=f"in_bases_{rk}", on_change=reset_confirmacion)
+    # Cambiado a selectbox para que la actualización sea instantánea sin necesidad de Enter
+    num_bases = st.selectbox("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", [1, 2, 3, 4, 5, 6], index=None, placeholder="Elige la cantidad...", key=f"in_bases_{rk}", on_change=reset_confirmacion)
 elif tipo == "Tipo Plancha (Rectangular)":
     st.write("**3. Cantidad de bases:**")
     st.info("💡 Las planchas tienen un formato estándar de 1 sola base (Altura fija de 6 cm).")
@@ -210,7 +211,6 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
         if st.button("✅ Aceptar", type="primary"):
             st.session_state.bases_confirmadas = True
     elif tipo == "Tipo Plancha (Rectangular)":
-        # Se auto-confirma si es plancha
         st.session_state.bases_confirmadas = True
 
     # Se despliega el menú de medidas
@@ -221,17 +221,21 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
         
         capacidad_temporal = 0
         
+        # Función limpia para que no muestre el "None" y cargue el placeholder correctamente
+        def formatear_medida(x):
+            return f"{x} ({diccionario_actual[x]} pers.)" if x is not None else ""
+        
         for i in range(num_bases):
             if tipo_relleno == "Rellenos diferentes por base":
                 col1, col2 = st.columns(2)
                 with col1:
                     dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Medida...", 
-                                       format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}_{rk}")
+                                       format_func=formatear_medida, key=f"in_dim_{i}_{rk}")
                 with col2:
                     rell = st.text_input(f"Relleno Base {i+1}", value="", placeholder="Ej. Chocolate", key=f"in_rell_{i}_{rk}")
             else:
                 dim = st.selectbox(f"Medida Base {i+1}", opciones_medidas, index=None, placeholder="Selecciona medida...", 
-                                   format_func=lambda x: f"{x} ({diccionario_actual[x]} pers.)", key=f"in_dim_{i}_{rk}")
+                                   format_func=formatear_medida, key=f"in_dim_{i}_{rk}")
                 rell = relleno_global
                     
             bases_ingresadas.append({'medida': dim, 'relleno': rell})
