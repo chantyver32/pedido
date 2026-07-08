@@ -293,4 +293,43 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
             st.write(f"📏 **Altura total:** {st.session_state.altura_total} cm")
 
             st.subheader("📐 Esquema Visual")
-            fig = dibujar_esquema(st.session_state.pisos
+            fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.tipo_guardado, st.session_state.tipo_relleno_guardado, st.session_state.relleno_global_guardado)
+            st.pyplot(fig)
+            
+            buf = io.BytesIO()
+            fig.savefig(buf, format="jpeg", bbox_inches='tight')
+            buf.seek(0)
+            
+            texto_wa = f"*Resumen de Pedido de Pastel*\n\n"
+            texto_wa += f"• *Tipo:* {st.session_state.tipo_guardado}\n"
+            texto_wa += f"• *Bases totales:* {st.session_state.num_bases_guardado}\n"
+            texto_wa += f"• *Altura Total:* {st.session_state.altura_total} cm\n\n"
+            texto_wa += f"📊 *Distribución y Rellenos:*\n"
+            if st.session_state.tipo_relleno_guardado == "Un solo relleno general":
+                texto_wa += f"  - Relleno General: {st.session_state.relleno_global_guardado}\n"
+            for p in st.session_state.pisos_agrupados:
+                rell_texto = "" if st.session_state.tipo_relleno_guardado == "Un solo relleno general" else f" | Relleno: {p['relleno']}"
+                texto_wa += f"  - {p['medida']} | {p['altura_cm']} cm{rell_texto}\n"
+            texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!\n\n"
+            texto_wa += f"Te adjunto en un momento el diseño visual del pastel."
+            
+            texto_wa_encoded = urllib.parse.quote(texto_wa)
+            whatsapp_url = f"https://wa.me/522281342454?text={texto_wa_encoded}"
+            
+            col_down, col_wa = st.columns(2)
+            with col_down:
+                st.download_button(
+                    label="💾 Descargar Diagrama (JPG)",
+                    data=buf,
+                    file_name="esquema_pastel.jpg",
+                    mime="image/jpeg",
+                    use_container_width=True
+                )
+            with col_wa:
+                st.link_button("💬 Enviar por WhatsApp", whatsapp_url, use_container_width=True)
+
+# --- BOTÓN BORRAR TODO (HASTA ABAJO) ---
+st.write("")
+st.write("")
+st.divider()
+st.button("🗑️ Borrar Todo y Limpiar Campos", on_click=reiniciar_app, use_container_width=True)
