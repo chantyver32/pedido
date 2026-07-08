@@ -120,7 +120,7 @@ def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
             
             pos_y_texto = y_inicio + dibujo_ancho - 8 - (i * 12)
             
-            etiqueta = f"{medida}\nAltura fija: 12 cm"
+            etiqueta = f"{medida}\nAltura fija: 6 cm"
             if tipo_relleno == "Rellenos diferentes por base":
                 etiqueta += f"\nRelleno: {piso['relleno']}"
                 
@@ -135,9 +135,7 @@ if 'reset_key' not in st.session_state:
 
 # --- FUNCIÓN REINICIAR Y RESET ---
 def reiniciar_app():
-    # Aumentamos la llave para obligar a que todos los componentes nazcan de nuevo
     st.session_state.reset_key += 1
-    # Limpiamos las variables operativas
     claves_a_borrar = [k for k in st.session_state.keys() if k != 'reset_key']
     for k in claves_a_borrar:
         del st.session_state[k]
@@ -166,7 +164,7 @@ st.title("🎂 Creador de Pasteles")
 st.write("Selecciona los parámetros y el sistema calculará las porciones y armará el diseño.")
 st.divider()
 
-rk = st.session_state.reset_key # Llave dinámica para inputs
+rk = st.session_state.reset_key
 
 # --- 1. DATOS PRINCIPALES ---
 tipo = st.selectbox("1. Tipo de Pastel:", ["Tipo Base (Redondo)", "Tipo Plancha (Rectangular)"], index=None, placeholder="Selecciona el tipo...", key=f"in_tipo_{rk}", on_change=reset_confirmacion)
@@ -195,32 +193,35 @@ if "bases_confirmadas" not in st.session_state:
     st.session_state.bases_confirmadas = False
 
 num_bases = None
-# Logica de número de bases dependiendo del tipo
+
 if tipo == "Tipo Base (Redondo)":
     num_bases = st.number_input("3. ¿Cuántos pasteles (bases de 6cm) vas a agregar?", min_value=1, max_value=6, value=None, placeholder="Ej. 2", key=f"in_bases_{rk}", on_change=reset_confirmacion)
 elif tipo == "Tipo Plancha (Rectangular)":
     st.write("**3. Cantidad de bases:**")
-    st.info("💡 Las planchas tienen un formato estándar de 1 sola base (Altura fija de 12 cm).")
+    st.info("💡 Las planchas tienen un formato estándar de 1 sola base (Altura fija de 6 cm).")
     num_bases = 1
 
 bases_ingresadas = []
 
 if num_bases is not None and tipo is not None and tipo_relleno is not None:
     
-    # El botón Aceptar siempre visible en este punto (después de configurar los 3 pasos)
-    if st.button("✅ Aceptar", type="primary"):
+    # Lógica del botón Aceptar (Solo para redondo)
+    if tipo == "Tipo Base (Redondo)":
+        if st.button("✅ Aceptar", type="primary"):
+            st.session_state.bases_confirmadas = True
+    elif tipo == "Tipo Plancha (Rectangular)":
+        # Se auto-confirma si es plancha
         st.session_state.bases_confirmadas = True
 
-    # Se despliega el menú solo tras confirmar
+    # Se despliega el menú de medidas
     if st.session_state.bases_confirmadas:
-        st.write("**Selecciona la medida de cada base agregada:**")
+        st.write("**Selecciona la medida:**") if tipo == "Tipo Plancha (Rectangular)" else st.write("**Selecciona la medida de cada base agregada:**")
         if tipo == "Tipo Base (Redondo)":
             st.info("💡 Tip: Bases de la misma medida se fusionan en pisos de altura doble (12 cm).")
         
         capacidad_temporal = 0
         
         for i in range(num_bases):
-            # Lógica para ocultar los rellenos si es "Un solo relleno"
             if tipo_relleno == "Rellenos diferentes por base":
                 col1, col2 = st.columns(2)
                 with col1:
@@ -235,11 +236,9 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
                     
             bases_ingresadas.append({'medida': dim, 'relleno': rell})
             
-            # Contador de personas en vivo
             if dim is not None:
                 capacidad_temporal += diccionario_actual[dim]
 
-        # Texto dinámico mostrando la capacidad
         if capacidad_temporal > 0:
             st.success(f"👥 Capacidad seleccionada hasta ahora: **{capacidad_temporal} personas**")
 
@@ -266,7 +265,7 @@ if num_bases is not None and tipo is not None and tipo_relleno is not None:
                 st.session_state.pisos_agrupados = agrupar_pisos(bases_ingresadas)
                 
                 if tipo == "Tipo Plancha (Rectangular)":
-                    st.session_state.altura_total = 12 
+                    st.session_state.altura_total = 6 
                 else:
                     st.session_state.altura_total = sum([piso['altura_cm'] for piso in st.session_state.pisos_agrupados])
                     
