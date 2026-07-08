@@ -23,7 +23,6 @@ def extraer_ancho(medida_str):
     return int(medida_str.split()[0])
 
 def agrupar_pisos(bases_ingresadas):
-    # bases_ingresadas es una lista de diccionarios: [{'medida': '25 cm', 'relleno': 'Fresa'}, ...]
     bases_ordenadas = sorted(bases_ingresadas, key=lambda x: extraer_ancho(x['medida']), reverse=True)
     pisos = []
     
@@ -31,7 +30,9 @@ def agrupar_pisos(bases_ingresadas):
         if pisos and pisos[-1]['medida'] == base['medida']:
             pisos[-1]['altura_cm'] += 6
             pisos[-1]['cantidad_bases'] += 1
-            pisos[-1]['relleno'] += " + " + base['relleno'] # Combina los textos de los rellenos
+            # Solo combinamos texto si los rellenos son distintos
+            if base['relleno'] not in pisos[-1]['relleno']:
+                pisos[-1]['relleno'] += " + " + base['relleno'] 
         else:
             pisos.append({
                 'medida': base['medida'], 
@@ -41,12 +42,12 @@ def agrupar_pisos(bases_ingresadas):
             })
     return pisos
 
-def dibujar_esquema(pisos_agrupados, tipo):
+def dibujar_esquema(pisos_agrupados, tipo, tipo_relleno, relleno_global):
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.axis('off')
     
     if tipo == "Tipo Base (Redondo)":
-        # VISTA LATERAL (Para pasteles redondos)
+        # VISTA LATERAL
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 140) 
         
@@ -70,39 +71,48 @@ def dibujar_esquema(pisos_agrupados, tipo):
                                        linewidth=2, edgecolor='black', facecolor='seashell')
             ax.add_patch(pastel)
             
-            # Etiqueta de Diámetro
-            ax.text(50, y_inicio + (altura_dibujo/2), f"{medida} dia.", 
-                    va='center', ha='center', fontsize=10, fontweight='bold', color='black')
+            # Etiqueta Central (Diámetro y Relleno si aplica)
+            etiqueta_centro = f"{medida} dia."
+            if tipo_relleno == "Rellenos diferentes por base":
+                etiqueta_centro += f"\n({piso['relleno']})"
+                
+            ax.text(50, y_inicio + (altura_dibujo/2), etiqueta_centro, 
+                    va='center', ha='center', fontsize=9, fontweight='bold', color='black')
             
             # Etiqueta de Altura (Izquierda)
             ax.text(x_inicio - 2, y_inicio + (altura_dibujo/2), f"{altura_cm} cm\n({piso['cantidad_bases']} bases)", 
                     va='center', ha='right', fontsize=9, color='blue')
-                    
-            # Etiqueta de Relleno (Derecha)
-            ax.text(x_inicio + ancho_dibujo + 2, y_inicio + (altura_dibujo/2), f"Relleno:\n{piso['relleno']}", 
-                    va='center', ha='left', fontsize=8, color='dimgray')
             
             y_inicio += altura_dibujo
             altura_total_dibujo += altura_dibujo
             altura_total_cm += altura_cm
             
+        # Cota de altura total
         ax.annotate('', xy=(88, 20), xytext=(88, 20 + altura_total_dibujo),
                     arrowprops=dict(arrowstyle='|-|', color='black', lw=1.5))
         ax.text(91, 20 + altura_total_dibujo/2, f'Total:\n{altura_total_cm} cm', 
                 va='center', ha='left', fontsize=12, fontweight='bold')
+        
+        # Relleno general (Si aplica, se pone hasta arriba)
+        if tipo_relleno == "Un solo relleno general":
+            ax.text(50, 20 + altura_total_dibujo + 5, f'Relleno: {relleno_global}', 
+                    va='bottom', ha='center', fontsize=11, fontstyle='italic', color='dimgray')
                 
     else:
-        # VISTA SUPERIOR (Para pasteles Plancha/Rectangulares)
+        # VISTA SUPERIOR (Planchas)
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 100)
         
-        # Se dibujan concéntricos desde el más grande al más chico
+        # Relleno general (Si aplica, se pone hasta arriba)
+        if tipo_relleno == "Un solo relleno general":
+            ax.text(50, 95, f'Relleno General: {relleno_global}', 
+                    va='top', ha='center', fontsize=11, fontstyle='italic', color='dimgray')
+
         for i, piso in enumerate(pisos_agrupados):
             medida = piso['medida']
             largo_str, ancho_str = medida.replace(" cm", "").split("x")
             largo, ancho = int(largo_str), int(ancho_str)
             
-            # Escala para que el más grande (63) quepa en el lienzo (100)
             escala = 1.3
             dibujo_largo = largo * escala
             dibujo_ancho = ancho * escala
@@ -110,17 +120,18 @@ def dibujar_esquema(pisos_agrupados, tipo):
             x_inicio = 50 - (dibujo_largo / 2)
             y_inicio = 50 - (dibujo_ancho / 2)
             
-            # Alternar ligero color para que se distingan si apilan varios
             color_fondo = 'seashell' if i % 2 == 0 else 'oldlace'
             
             plancha = patches.Rectangle((x_inicio, y_inicio), dibujo_largo, dibujo_ancho, 
                                         linewidth=2, edgecolor='black', facecolor=color_fondo)
             ax.add_patch(plancha)
             
-            # Posicionar el texto escalonado para que no se encimen
             pos_y_texto = y_inicio + dibujo_ancho - 8 - (i * 12)
             
-            etiqueta = f"{medida}\nAltura fija: 12 cm\nRelleno: {piso['relleno']}"
+            etiqueta = f"{medida}\nAltura fija: 12 cm"
+            if tipo_relleno == "Rellenos diferentes por base":
+                etiqueta += f"\nRelleno: {piso['relleno']}"
+                
             ax.text(50, pos_y_texto, etiqueta, va='top', ha='center', fontsize=9, 
                     fontweight='bold', color='black', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=2))
 
@@ -188,7 +199,6 @@ if "calculado" not in st.session_state:
 # --- 3. BOTÓN DE CALCULAR ---
 if st.button("🚀 Calcular y Generar Esquema", type="primary"):
     
-    # Validaciones para que no falte ningún dato
     campos_incompletos = False
     if tipo is None or num_bases is None or tipo_relleno is None:
         campos_incompletos = True
@@ -206,12 +216,14 @@ if st.button("🚀 Calcular y Generar Esquema", type="primary"):
         st.session_state.pisos_agrupados = agrupar_pisos(bases_ingresadas)
         
         if tipo == "Tipo Plancha (Rectangular)":
-            st.session_state.altura_total = 12 # Altura fija para plancha
+            st.session_state.altura_total = 12 
         else:
             st.session_state.altura_total = sum([piso['altura_cm'] for piso in st.session_state.pisos_agrupados])
             
         st.session_state.tipo_guardado = tipo
         st.session_state.num_bases_guardado = num_bases
+        st.session_state.tipo_relleno_guardado = tipo_relleno
+        st.session_state.relleno_global_guardado = relleno_global
         st.session_state.calculado = True
 
 # --- MOSTRAR RESULTADOS SI YA SE CALCULÓ ---
@@ -225,7 +237,7 @@ if st.session_state.calculado:
     st.write(f"📏 **Altura total:** {st.session_state.altura_total} cm")
 
     st.subheader("📐 Esquema Visual")
-    fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.tipo_guardado)
+    fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.tipo_guardado, st.session_state.tipo_relleno_guardado, st.session_state.relleno_global_guardado)
     st.pyplot(fig)
     
     buf = io.BytesIO()
@@ -238,8 +250,11 @@ if st.session_state.calculado:
     texto_wa += f"• *Bases totales:* {st.session_state.num_bases_guardado}\n"
     texto_wa += f"• *Altura Total:* {st.session_state.altura_total} cm\n\n"
     texto_wa += f"📊 *Distribución y Rellenos:*\n"
+    if st.session_state.tipo_relleno_guardado == "Un solo relleno general":
+        texto_wa += f"  - Relleno General: {st.session_state.relleno_global_guardado}\n"
     for p in st.session_state.pisos_agrupados:
-        texto_wa += f"  - {p['medida']} | {p['altura_cm']} cm | Relleno: {p['relleno']}\n"
+        rell_texto = "" if st.session_state.tipo_relleno_guardado == "Un solo relleno general" else f" | Relleno: {p['relleno']}"
+        texto_wa += f"  - {p['medida']} | {p['altura_cm']} cm{rell_texto}\n"
     texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!\n\n"
     texto_wa += f"Te adjunto en un momento el diseño visual del pastel."
     
