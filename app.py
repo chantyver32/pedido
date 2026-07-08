@@ -39,7 +39,6 @@ def dibujar_esquema(pisos_agrupados, relleno, tipo):
     ax.set_ylim(0, 140) 
     ax.axis('off')
     
-    # Plato
     plato = patches.Ellipse((50, 20), 80, 10, color='saddlebrown')
     ax.add_patch(plato)
     
@@ -85,7 +84,7 @@ def dibujar_esquema(pisos_agrupados, relleno, tipo):
 def reiniciar_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.rerun()
+    # Se eliminó st.rerun() para evitar la advertencia, ya que Streamlit recarga automáticamente
 
 # --- INTERFAZ DE USUARIO ---
 st.set_page_config(page_title="Creador de Pasteles", layout="centered")
@@ -155,33 +154,25 @@ if st.session_state.calculado:
     fig = dibujar_esquema(st.session_state.pisos_agrupados, st.session_state.relleno_guardado, st.session_state.tipo_guardado)
     st.pyplot(fig)
     
+    # Se cambia la exportación a JPEG
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches='tight')
+    fig.savefig(buf, format="jpeg", bbox_inches='tight')
     buf.seek(0)
     
-    # --- TEXTO DE WHATSAPP ---
-    texto_wa = f"*Resumen de Pedido de Pastel*\n\n"
-    texto_wa += f"• *Tipo:* {st.session_state.tipo_guardado}\n"
-    texto_wa += f"• *Relleno:* {st.session_state.relleno_guardado}\n"
-    texto_wa += f"• *Bases totales:* {st.session_state.num_bases_guardado} de 6cm c/u\n"
-    texto_wa += f"• *Altura Total:* {st.session_state.altura_total} cm\n\n"
-    texto_wa += f"📊 *Distribución de pisos:*\n"
-    for p in st.session_state.pisos_agrupados:
-        texto_wa += f"  - Medida: {p['medida']} | Altura: {p['altura_cm']} cm ({p['cantidad_bases']} bases)\n"
-    texto_wa += f"\n👥 *Capacidad Calculada:* ¡Para {st.session_state.total_personas} personas!"
-    
+    # Mensaje de texto reducido para acompañar la imagen manualmente
+    texto_wa = f"¡Hola! Te comparto la cotización de tu pastel para {st.session_state.total_personas} personas. Te adjunto el diseño visual:"
     texto_wa_encoded = urllib.parse.quote(texto_wa)
     
-    # NUEVO: Aquí se agrega el número con el código de país (52 para México)
     whatsapp_url = f"https://wa.me/522281342454?text={texto_wa_encoded}"
     
     col_down, col_wa = st.columns(2)
     with col_down:
+        # Botón configurado para archivo JPG
         st.download_button(
-            label="💾 Descargar Diagrama (PNG)",
+            label="💾 Descargar Diagrama (JPG)",
             data=buf,
-            file_name="esquema_pastel.png",
-            mime="image/png",
+            file_name="esquema_pastel.jpg",
+            mime="image/jpeg",
             use_container_width=True
         )
     with col_wa:
